@@ -1,3 +1,22 @@
+function copytable(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in pairs(orig) do
+            copy[copytable(orig_key)] = copytable(orig_value)
+        end
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
+end
+
+math.randomseed(os.time())
+
+math.randomseed(os.time())
+
+math.randomseed(os.time())
 DISABLE_SCROLLING_INPUT = false
 -- flip this when the script keeps crashing
 -- replace the text after the '=' with:
@@ -212,6 +231,7 @@ local defaultconfig = {
 		boxyd = 10, -- divisor
 		boxym = 9, -- multiplier
 		selectioncolour = 0xFF0000FF,
+		guiscale = 1.0,
 	},
 
 	-- Input Settings
@@ -233,6 +253,7 @@ local defaultconfig = {
 	recording = {
 		skiptostart = false,
 		skiptofinish = false,
+		randomize_end_position = false,
 	},
 
 	hitbox = {
@@ -268,7 +289,7 @@ for i, v in pairs(games) do
 	for _, k in ipairs(v) do
 		if (rom == k) then
 			dirname = i
-			configpath = "games/"..dirname.."/config.lua"
+			configpath = dirname.."_config.lua"
 		end
 	end
 end
@@ -659,6 +680,11 @@ recording = {
 	{},
 	{},
 	{},
+	{},
+	{},
+	{},
+	{},
+	{},
 	recordingslot = 1,
 	hitslot,
 	savestateslot,
@@ -666,12 +692,14 @@ recording = {
 	editframe,
 	skiptostart = config.recording.skiptostart,
 	skiptofinish = config.recording.skiptofinish,
+	randomize_end_position = config.recording.randomize_end_position,
 	swapplayers = true,
 	replayP1 = false,
 	replayP2 = true,
 	maxstarttime = 0,
 	starttime = 0,
 	startcounter = 0,
+	randomize_start_position = true,
 }
 
 ----------------------------------------------
@@ -914,44 +942,65 @@ local playback=gd.createFromPng("resources/replay/playback.png"):gdStr()
 local savestateslot=gd.createFromPng("resources/replay/savestateslot.png"):gdStr()
 
 drawReplayInfo = function()
-	for i = 1, 5 do
+	for i = 1, 10 do
 		if (recording[i][1]) then -- something in slot
-			gui.text(interactivegui.boxx2-41,interactivegui.boxy2-71+10*i, "Slot "..i, "yellow")
+			gui.text(interactivegui.boxx2-41,interactivegui.boxy+15+10*i, "Slot "..i, "yellow")
 		else
-			gui.text(interactivegui.boxx2-41,interactivegui.boxy2-71+10*i, "Slot "..i)
+			gui.text(interactivegui.boxx2-41,interactivegui.boxy+15+10*i, "Slot "..i)
 		end
 		if recording.recordingslot == i then
-			gui.gdoverlay(interactivegui.boxx2-53, interactivegui.boxy2-71+10*i-1, playback)
+			gui.gdoverlay(interactivegui.boxx2-53, interactivegui.boxy+15+10*i-1, playback)
 		end
 		if recording.hitslot == i then
-			gui.gdoverlay(interactivegui.boxx2-64, interactivegui.boxy2-71+10*i-1, hitplayback)
+			gui.gdoverlay(interactivegui.boxx2-64, interactivegui.boxy+15+10*i-1, hitplayback)
 		end
 		if recording.savestateslot == i then
-			gui.gdoverlay(interactivegui.boxx2-75, interactivegui.boxy2-71+10*i-1, savestateslot)
+			gui.gdoverlay(interactivegui.boxx2-75, interactivegui.boxy+15+10*i-1, savestateslot)
 		end
 		-- check if anything is recorded in that slot
 		if (recording[i].p1start~=recording[i].p1finish and recording[i].p1finish and recording[i].p2start~=recording[i].p2finish and recording[i].p2finish) then
-			gui.text(interactivegui.boxx2-16,interactivegui.boxy2-71+10*i, "P1&2")
+			gui.text(interactivegui.boxx2-16,interactivegui.boxy+15+10*i, "P1&2")
 		elseif (recording[i].p1start~=recording[i].p1finish and recording[i].p1finish) then
-			gui.text(interactivegui.boxx2-16,interactivegui.boxy2-71+10*i, "P1")
+			gui.text(interactivegui.boxx2-16,interactivegui.boxy+15+10*i, "P1")
 		elseif (recording[i].p2start~=recording[i].p2finish and recording[i].p2finish) then
-			gui.text(interactivegui.boxx2-16,interactivegui.boxy2-71+10*i, "P2")
+			gui.text(interactivegui.boxx2-16,interactivegui.boxy+15+10*i, "P2")
 		end
 	end
 end
 
-replaySave = function()
-	if dirname~="" then assert(table.save(recording[recording.recordingslot],configpath:sub(1,-11).."replay.lua")==nil, "Can't save replay file")
-	else assert(table.save(recording[recording.recordingslot],configpath:sub(1,-5).."_replay.lua")==nil, "Can't save replay file")
-	end
+replaySaveAll = function()
+	local path = dirname.."_replays.lua"
+
+    local slotsToSave = {}
+    for i = 1, 10 do
+        slotsToSave[i] = recording[i]
+    end
+
+	if table.save(slotsToSave, path) then
+        print("All slots saved to: " .. path)
+    else
+        print("Error: Could not save slots to: " .. path)
+    end
 end
 
-replayLoad = function()
-	local path = configpath:sub(1,-5).."_replay.lua"
-	if dirname~="" then path = configpath:sub(1,-11).."replay.lua" end
+replayLoadAll = function()
+	local path = configpath:sub(1,-5).."_replays.lua"
+	if dirname~="" then path = configpath:sub(1,-11).."replays.lua" end
 	if fexists(path) then
-		recording[recording.recordingslot]=table.load(path)
-	end
+		local loadedSlots = table.load(path)
+        if loadedSlots then
+            for i = 1, 10 do
+                if loadedSlots[i] then
+                    recording[i] = loadedSlots[i]
+                end
+            end
+            print("All slots loaded from: " .. path)
+        else
+            print("Error: Could not load slots from: " .. path)
+        end
+	else
+        print("No replay file found at: " .. path)
+    end
 end
 
 function guiTableFormatting(t) -- produces a table of element ids that can be used for up/down/left/right navigation
@@ -993,11 +1042,20 @@ function guiTableFormatting(t) -- produces a table of element ids that can be us
 end
 
 if fexists("guipages.lua") then
+    _G.config = config
 	dofile("guipages.lua")
 	interactiveguipages = guipages
 else
 	print("GUI pages not found"..rom)
 end
+
+original_guipages = copytable(guipages)
+original_guielements = copytable(guielements)
+
+scaleGUI = function(scale)
+    print("GUI scale set to " .. tostring(scale) .. ". Reload script to apply changes.")
+end
+
 ----------------------------------------------
 end
 
@@ -1043,10 +1101,20 @@ end
 
 ignore_save_config = false
 saveConfig = function()
-	if not availablefunctions.tablesave or not config.changed or ignore_save_config then return end
-	config.changed = false -- only saves if the config has changed
-	print("Saving config: " .. configpath)
-	assert(table.save(config, configpath)==nil, "Can't save config file")
+	if not availablefunctions.tablesave or not config.changed or ignore_save_config then 
+        if not ignore_save_config then
+            print("No configuration changes to save.")
+        end
+        return 
+    end
+
+	if table.save(config, configpath) then
+        print("Saving config successful: " .. configpath)
+        config.changed = false -- Reset flag only on successful save
+    else
+        print("ERROR: Could not save config to: " .. configpath)
+        print("Please check file permissions.")
+    end
 end
 
 local updateModuleVars = function()
@@ -1658,12 +1726,12 @@ togglePlayBack = function(bool, vargs)
 	
 	if recording.randomise then
 		local b = false
-		for i = 1, 5 do if recording[i][1] then b = true end end
+		for i = 1, 10 do if recording[i][1] then b = true end end
 		if not b then return end
 		local pos
 		_playbackslot = nil
 		while _playbackslot==nil do -- keep running until we get a valid slot
-			pos = math.random(5)
+			pos = math.random(10)
 			if recording[pos][1] then -- check if there's something in here
 				_playbackslot = pos
 			end
@@ -1694,6 +1762,7 @@ togglePlayBack = function(bool, vargs)
 
 	if not recording.playback then
 		recordslot.framestart = nil
+		recordslot.random_finish = nil -- Clear the random finish point
 	else
 		recording.playbackslot = _playbackslot
 		
@@ -1708,11 +1777,20 @@ togglePlayBack = function(bool, vargs)
 		end
 		if recordslot.start==recordslot.finish then toggleSwapInputs(false) return end -- nothing recorded
 		
-		recording.startcounter = 0 -- randomise starting playback
-		if recording.maxstarttime == 0 then
-			recording.starttime = 0
+		if recording.randomize_start_position and #recordslot > 0 then
+			recordslot.start = math.random(1, #recordslot)
 		else
-			recording.starttime = math.random(recording.maxstarttime+1)-1 -- [0,maxstarttime]
+			recording.startcounter = 0 -- randomise starting playback
+			if recording.maxstarttime == 0 then
+				recording.starttime = 0
+			else
+				recording.starttime = math.random(recording.maxstarttime+1)-1 -- [0,maxstarttime]
+			end
+		end
+
+		if recording.randomize_end_position and #recordslot > (recordslot.start or 0) then
+			local start_point = recordslot.start or 0
+			recordslot.random_finish = math.random(start_point, #recordslot)
 		end
 	end
 end
@@ -1727,11 +1805,16 @@ local playBack = function()
 
 	local start, finish = 0, #recordslot
 
-	if recording.skiptostart and recordslot.start then start = recordslot.start end
-	if recording.skiptofinish and recordslot.finish then finish = recordslot.finish end
+	if recordslot.start then start = recordslot.start end
+	
+	if recordslot.random_finish then
+		finish = recordslot.random_finish
+	elseif recording.skiptofinish and recordslot.finish then 
+		finish = recordslot.finish 
+	end
 	
 	if recording.starttime > recording.startcounter then -- delay until replay starts
-		gui.text(1,1,"Slot "..recording.playbackslot.." ("..fc-recordslot.framestart.."/"..#recordslot..")")
+		gui.text(1,1,"Slot "..recording.playbackslot.." ("..fc-recordslot.framestart+start.."/"..#recordslot..")")
 		recording.startcounter = recording.startcounter+1
 		recordslot.framestart = recordslot.framestart+1
 		return
@@ -1747,19 +1830,24 @@ local playBack = function()
 			recording.playbackslot = nil
 			return
 		else -- loop
-			recordslot.framestart = fc-1
+			togglePlayBack(false)
+			togglePlayBack(true)
+			return
 		end
 	end
 
-	gui.text(1,1,"Slot "..recording.playbackslot.." ("..fc-recordslot.framestart.."/"..#recordslot..")")
+	gui.text(1,1,"Slot "..recording.playbackslot.." ("..fc-recordslot.framestart+start.."/"..#recordslot..")")
 
-	Unserialise(recordslot[fc - recordslot.framestart + start], recordslot._stable, recordslot.constants)
-	local raw = recordslot[fc - recordslot.framestart + start].raw
+	local current_input = recordslot[fc - recordslot.framestart + start]
+	if not current_input then return end
 
-	if modulevars.p1.facingleft ~= recordslot[fc - recordslot.framestart + start].p1facingleft and recording.autoturn then
+	Unserialise(current_input, recordslot._stable, recordslot.constants)
+	local raw = current_input.raw
+
+	if modulevars.p1.facingleft ~= current_input.p1facingleft and recording.autoturn then
 		raw.p1 = swapPlayerDirection(raw.p1)
 	end
-	if modulevars.p2.facingleft ~= recordslot[fc - recordslot.framestart + start].p2facingleft and recording.autoturn then
+	if modulevars.p2.facingleft ~= current_input.p2facingleft and recording.autoturn then
 		raw.p2 = swapPlayerDirection(raw.p2)
 	end
 	if recording.replayP1 and recording.replayP2 then
@@ -1769,9 +1857,9 @@ local playBack = function()
 	else
 		inputs.setinputs = combinePlayerInputs(inputs.p1, raw.p2, raw.other)
 	end
-	recordslot[fc - recordslot.framestart + start].raw = nil
-	recordslot[fc - recordslot.framestart + start].p1facingleft = nil
-	recordslot[fc - recordslot.framestart + start].p2facingleft = nil
+	current_input.raw = nil
+	current_input.p1facingleft = nil
+	current_input.p2facingleft = nil
 end
 
 local hitPlayBack = function()
@@ -2256,7 +2344,7 @@ local drawInteractiveGUI = function()
 	local w, h, colour
 
 	local barcolour = interactivegui.barcolour
-	for i,v in pairs(page) do
+	for i,v in ipairs(page) do
 		if i~="other_func" and i~="aother_func"  then  -- this should be a function, copied function
 			if v.autofunc then
 				v:autofunc()
