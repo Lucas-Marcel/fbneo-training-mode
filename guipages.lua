@@ -44,6 +44,26 @@ guielements = { -- some shorthands/parts of interactiveguipages that can be move
 					toggleMoveHUD(true, {})
 				end,
 	},
+    guiscale = {
+        text = "GUI Size",
+        x = 80,
+        y = 150,
+        olcolour = "black",
+        info = "Changes the size of the GUI.",
+        func = function()
+            CIG("guisizepage")
+        end,
+        autofunc = function(this)
+            local scale = config.interactivegui.guiscale or 1.0
+            local size_text = "Medium"
+            if scale == 0.8 then
+                size_text = "Small"
+            elseif scale == 1.2 then
+                size_text = "Big"
+            end
+            this.text = "GUI Size: " .. size_text
+        end,
+    },
 	coininputleniency = {
 		text = "Coin leniency",
 		x = 64,
@@ -83,6 +103,15 @@ guielements = { -- some shorthands/parts of interactiveguipages that can be move
 		--y = 150,
 		olcolour = "black",
 		func = 	function() CIG("addonpage1", 1) end,
+	},
+	saveconfig = {
+		text = "Save Config",
+		olcolour = "black",
+		info = "Manually saves all current script settings.",
+		func = function()
+			config.changed = true
+			saveConfig()
+		end,
 	},
 	directionset = {
 		text = "Set the direction P2 is holding",
@@ -350,11 +379,14 @@ guielements = { -- some shorthands/parts of interactiveguipages that can be move
 					end,
 	},
 	replaysaveload = {
-		text = "Save/Load",
-		x = 29,
+		text = "Save/Load All Slots",
 		olcolour = "black",
-		info = "Save and Load replays (current slot)",
+		info = "Save and Load all replay slots",
 		func = function() CIG("replaysaveload", 1) end,
+        autofunc = function(this)
+            this.x = (interactivegui.boxxlength / 2) - (#this.text * 2)
+            this.y = interactivegui.boxylength - 15
+        end,
 	},
 	replayeditortoggle = {
 		text = "Replay Editor",
@@ -460,22 +492,48 @@ guipages = { -- interactiveguipages
 						end,
 		},
 		{
-			text = "Randomise recording playback",
+			text = "Random Start Position",
 			x = 1,
-			info = "Random the timing playback starts at",
+			info = "Start playback from a random position in the recording.",
 			olcolour = "black",
-			func =	function()
-						CIG("replaystartingtime")
+			func = 	function()
+						recording.randomize_start_position = not recording.randomize_start_position
 					end,
 			autofunc = 	function(this)
-							if recording.maxstarttime~=0 then
-								this.text = "Maximum "..recording.maxstarttime.."f delayed start"
-								this.x = 1
+							if recording.randomize_start_position then
+								this.text = "Random Start: On"
 							else
-								this.text = "Randomise recording playback"
-								this.x = 1
+								this.text = "Random Start: Off"
 							end
 						end,
+		},
+		{
+			text = "Random End Position",
+			x = 1,
+			info = "End playback at a random position in the recording.",
+			olcolour = "black",
+			func = 	function()
+						recording.randomize_end_position = not recording.randomize_end_position
+					end,
+			autofunc = 	function(this)
+							if recording.randomize_end_position then
+								this.text = "Random End: On"
+							else
+								this.text = "Random End: Off"
+							end
+						end,
+		},
+		{
+			text = "Max Start Time",
+			x = 1,
+			info = "Sets the maximum random delay before a replay starts.",
+			olcolour = "black",
+			func = function()
+				CIG("maxstarttime")
+			end,
+			autofunc = function(this)
+				this.text = "Max Start Time: "..recording.maxstarttime
+			end,
 		},
 		{
 			text = "Snipping Replays", -- clean this up in future
@@ -608,12 +666,12 @@ if availablefunctions.readplayertwohealth and availablefunctions.playertwoinhits
 	table.insert(guipages[3], guielements.hitplayback.main)
 end
 
-if availablefunctions.tablesave and availablefunctions.tableload then
-	table.insert(guipages[3], guielements.replaysaveload)
-end
-
 if modulevars.constants.translationtable then -- replay editor
 	table.insert(guipages[3], guielements.replayeditortoggle)
+end
+
+if availablefunctions.tablesave and availablefunctions.tableload then
+	table.insert(guipages[3], guielements.replaysaveload)
 end
 
 
@@ -843,6 +901,11 @@ if availablefunctions.readplayertwohealth and availablefunctions.playertwoinhits
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
 		{y = guielements.hitplayback.main.y, text = "None", releasefunc = function() return function() recording.hitslot = nil CIG(interactivegui.previouspage, interactivegui.previousselection) end end, autofunc = function() end}
 	}
 	local rf = function(n) return function() recording.hitslot = n CIG(interactivegui.previouspage, interactivegui.previousselection) end end
@@ -865,6 +928,11 @@ do -- savestateslot
 		{},
 		{},
 		{},
+		{},
+		{},
+		{},
+		{},
+		{},
 		{y = guielements.savestateplayback.y, text = "None", releasefunc = function() return function() recording.savestateslot = nil CIG(interactivegui.previouspage, interactivegui.previousselection) end end, autofunc = function() end}
 	}
 	local rf = function(n) return function() recording.savestateslot = n CIG(interactivegui.previouspage, interactivegui.previousselection) end end
@@ -882,8 +950,8 @@ end
 
 do -- replaysaveload
 	local Elements = {
-		{text = "Save", releasefunc = function() return function() replaySave() CIG(interactivegui.previouspage, interactivegui.previousselection) end end},
-		{text = "Load", releasefunc = function() return function() replayLoad() CIG(interactivegui.previouspage, interactivegui.previousselection) end end},
+		{text = "Save All Slots", releasefunc = function() return function() replaySaveAll() CIG(interactivegui.previouspage, interactivegui.previousselection) end end},
+		{text = "Load All Slots", releasefunc = function() return function() replayLoadAll() CIG(interactivegui.previouspage, interactivegui.previousselection) end end},
 	}
 	guipages.replaysaveload = createPopUpMenu(guipages[3], nil, nil, nil, Elements, 72, 135)
 end
@@ -899,18 +967,9 @@ do -- recordingslot
 			end
 		end
 	end
-	guipages.recordingslot = createPopUpMenu(guipages[3], rf, nil, af, nil, 72, guipages[3][4].y-20, 5)
+	guipages.recordingslot = createPopUpMenu(guipages[3], rf, nil, af, nil, 72, guipages[3][4].y-20, 10)
 end
 
-do -- random starting time
-	local uf = 	function(n) 
-		if n then
-			recording.maxstarttime = recording.maxstarttime+n
-		end
-		return recording.maxstarttime
-	end
-	guipages.replaystartingtime = createScrollingBar(guipages[3], 145, guipages[3][7].y, 0, 180, uf, interactivegui.boxxlength/2) -- up to 180f of delay
-end
 
 do -- which player(s) to replay
 	local playerrecelements = {
@@ -919,6 +978,16 @@ do -- which player(s) to replay
 						{text = "P1&P2", selectfunc = function() return function() recording.replayP1=true recording.replayP2=true end end},
 					}
 	guipages.playerrecording = createPopUpMenu(guipages[3], nil, nil, nil, playerrecelements, 144, 55, nil)
+end
+
+do -- maxstarttime
+	local uf = function(n) 
+		if n then
+			changeConfig("recording", "maxstarttime", recording.maxstarttime+n, recording)
+		end
+		return recording.maxstarttime
+	end
+	guipages.maxstarttime = createScrollingBar(guipages[3], 145, 40, 0, 600, uf, interactivegui.boxxlength/2)
 end
 
 formatGuiTables()
@@ -1008,3 +1077,72 @@ function insertAddonButton(addon_button) -- Could be improved to create as many 
 	table.insert(_addonpage, addon_button)
 	formatGuiTables()
 end
+
+guipages.guisizepage = {
+    title = {
+        text = "GUI Size",
+        x = interactivegui.boxxlength/2 - 20,
+        y = 1,
+    },
+    {
+        text = "Small",
+        x = 10,
+        y = 30,
+        olcolour = "black",
+        info = "Set GUI size to 0.8x. Requires script reload.",
+        func = function()
+            changeConfig("interactivegui", "guiscale", 0.8)
+            scaleGUI(0.8)
+        end,
+    },
+    {
+        text = "Medium",
+        x = 10,
+        y = 50,
+        olcolour = "black",
+        info = "Set GUI size to 1.0x (Default). Requires script reload.",
+        func = function()
+            changeConfig("interactivegui", "guiscale", 1.0)
+            scaleGUI(1.0)
+        end,
+    },
+    {
+        text = "Big",
+        x = 10,
+        y = 70,
+        olcolour = "black",
+        info = "Set GUI size to 1.2x. Requires script reload.",
+        func = function()
+            changeConfig("interactivegui", "guiscale", 1.2)
+            scaleGUI(1.2)
+        end,
+    },
+    {
+        text = "<",
+        x = 10,
+        y = 90,
+        olcolour = "black",
+        info = "Back to main menu",
+        func = function()
+            CIG(1)
+        end,
+    },
+    other_func = function(this)
+        local scale = config.interactivegui.guiscale or 1.0
+        if scale == 0.8 then
+            guipages.guisizepage[2].textcolour = "yellow"
+            guipages.guisizepage[3].textcolour = "white"
+            guipages.guisizepage[4].textcolour = "white"
+        elseif scale == 1.2 then
+            guipages.guisizepage[2].textcolour = "white"
+            guipages.guisizepage[3].textcolour = "white"
+            guipages.guisizepage[4].textcolour = "yellow"
+        else -- Default to medium
+            guipages.guisizepage[2].textcolour = "white"
+            guipages.guisizepage[3].textcolour = "yellow"
+            guipages.guisizepage[4].textcolour = "white"
+        end
+    end,
+}
+table.insert(guipages[1], guielements.guiscale)
+table.insert(guipages[1], guielements.saveconfig)
