@@ -1,4 +1,12 @@
-﻿# fbneo-training-mode
+This fork adds a few extra feature Like: random start element that randomizes the position of the replay start playback, 
+random end that randomizes the position of the replay end playback
+Adds 10 replay slots. Before it was only 5
+Fix a bug that crashes the lua script randomly whenever you are using many replay slots. 
+increases your save/load slot element that allows you to save all of your replay slots at the same time. You could only save 1 replay, before.
+adds a resize gui and save config element that is still work in progress, so it's not workng for now
+ 
+ 
+ # fbneo-training-mode
 A simple training mode for multiple games on the fbneo platform
 
 Written to allow easy incorporation of more games
